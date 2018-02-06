@@ -5,7 +5,6 @@ import lldb
 import shlex
 import optparse
 import struct
-import commands
 
 def __lldb_init_module(debugger,internal_dict):
 	#模块初始化
@@ -75,10 +74,10 @@ def decryptDump(debugger,command,result,dict):
 
 				if magic==MH_MAGIC or magic==MH_MAGIC_64:
 					#小端
-					prefix = "<"
+					prefix = '<'
 				elif magic==MH_CIGAM or magic==MH_CIGAM_64:
 					#大端
-					prefix = ">"
+					prefix = '>'
 				else:
 					raise Exception("magic error ===> [0x%4x]" % (magic))
 
@@ -89,30 +88,29 @@ def decryptDump(debugger,command,result,dict):
 					encryption_info_description = 'LC_ENCRYPTION_INFO_64'
 
 				#读取`ncmds`和`sizecmds`
-				ncmds,sizecmds = struct.unpack(prefix + "2I", macho_memory[16:24])
+				ncmds,sizecmds = struct.unpack(prefix + '2I', macho_memory[16:24])
 				macho_memory = process.ReadMemory(image_load_address, sizecmds+mach_header_size, read_res)
 				load_command_start = mach_header_size
 
 				#读取各个`loadcommand`,寻找 `LC_ENCRYPTION_INFO` 或 `LC_ENCRYPTION_INFO_64`
 				for i in range(ncmds):
-					cmd, cmdsize = struct.unpack(prefix + "2I", macho_memory[load_command_start:load_command_start+8])
+
+					cmd, cmdsize = struct.unpack(prefix + '2I', macho_memory[load_command_start:load_command_start+8])
 					if cmd == encryption_info_cmd:
 						load_command_start = load_command_start + 8
-						cryptoffset,cryptsize,cryptid = struct.unpack(prefix + "3I",macho_memory[load_command_start:load_command_start+12]);
+						cryptoffset,cryptsize,cryptid = struct.unpack(prefix + '3I',macho_memory[load_command_start:load_command_start+12]);
 						print "INFO: cryptoffset: 0x%04x\n      cryptsize: 0x%04x\n      cryptid: 0x%04x\n" % (cryptoffset,cryptsize,cryptid)
+						
+						break;
+
 					else:
 						load_command_start = load_command_start + cmdsize
 
 				ci = debugger.GetCommandInterpreter()
 				res = lldb.SBCommandReturnObject()
-				ci.HandleCommand("memory read --force --outfile %s.bin --binary --count %d 0x%016X" % (options.output, cryptsize, image_load_address + cryptoffset), res)
+				ci.HandleCommand("memory read --force --outfile %s --binary --count %d 0x%016X" % (options.output, cryptsize, image_load_address + cryptoffset), res)
 				if res.Succeeded():
 					print "INFO: 0x%4x bytes read as binary" % (cryptsize)
-					print "INFO: convert binary file via dd..."
-					result = commands.getoutput('dd seek=%d bs=1 conv=notrunc if=%s.bin of=%s' % (cryptoffset, options.output, options.output))
-					commands.getoutput('rm -f %s.bin' % (options.output))
-
-					print result
 				else:
 					print res
 			else:
