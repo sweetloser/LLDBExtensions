@@ -21,8 +21,6 @@ def findImage(debugger,command,result,dict):
 	except Exception as e:
 		print e
 		return
-
-
 	target = debugger.GetSelectedTarget()
 	#如果没有输入参数，则默认是可执行文件模块
 	if options.image == None:
@@ -33,8 +31,9 @@ def findImage(debugger,command,result,dict):
 		if module.file.basename == options.image:
 			print "PATH:\t" + module.file.fullpath
 			print "ASLR:\t"+str(hex(module.GetObjectFileHeaderAddress().GetLoadAddress(target)))
+			return
 			
-
+	print "not found image named %s" % (options.image)
 
 
 
